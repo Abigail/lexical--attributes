@@ -31,5 +31,3 @@ sub dead_colours {
 1;
 
 __END__
-
-=head1 HISTORY

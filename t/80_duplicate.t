@@ -33,13 +33,3 @@ ok (defined &Duplicate::key, "Method");
 ok (!defined $obj -> key, "Method should return undef");
 
 __END__
-
-=head1 HISTORY
-
- $Log: 80_duplicate.t,v $
- Revision 1.2  2005/03/03 23:34:31  abigail
- Added -s on she-bang line
-
- Revision 1.1  2005/02/25 00:24:02  abigail
- First checkin
-

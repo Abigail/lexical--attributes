@@ -74,10 +74,3 @@ method count_array   {$#.array;}
 1;
 
 __END__
-
-=head1 HISTORY
-
- $Log: Array.pm,v $
- Revision 1.1  2005/08/26 21:22:47  abigail
- New tests
-

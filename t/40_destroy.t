@@ -86,16 +86,3 @@ is_deeply ([NoDestroy   -> count_keys], [0, 1, 2], "Count");
 is_deeply ([BusyDestroy -> count_keys], [0, 1, 2], "Count");
 
 __END__
-
-=head1 HISTORY
-
- $Log: 40_destroy.t,v $
- Revision 1.3  2005/08/26 21:24:45  abigail
- New, or modified tests
-
- Revision 1.2  2005/03/03 23:34:31  abigail
- Added -s on she-bang line
-
- Revision 1.1  2005/02/25 00:24:02  abigail
- First checkin
-

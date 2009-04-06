@@ -64,10 +64,3 @@ method slice_hash  {@.hash {@_};}
 1;
 
 __END__
-
-=head1 HISTORY
-
- $Log: Hash.pm,v $
- Revision 1.1  2005/08/26 21:22:47  abigail
- New tests
-

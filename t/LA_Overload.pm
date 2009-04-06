@@ -27,16 +27,3 @@ method stringify {
 1;
 
 __END__
-
-=head1 HISTORY
-
- $Log: LA_Overload.pm,v $
- Revision 1.3  2005/08/26 21:24:45  abigail
- New, or modified tests
-
- Revision 1.2  2005/03/03 23:35:05  abigail
- Renamed Base.pm and Overload.pm because of case-insensitive filesystems
-
- Revision 1.1  2005/02/25 00:24:02  abigail
- First checkin
-

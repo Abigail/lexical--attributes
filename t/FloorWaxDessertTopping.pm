@@ -33,5 +33,3 @@ sub destruct_count {
 1;
 
 __END__
-
-=head1 HISTORY

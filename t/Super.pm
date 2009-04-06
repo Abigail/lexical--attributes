@@ -44,13 +44,3 @@ sub set_address {
 1;
 
 __END__
-
-=head1 HISTORY
-
- $Log: Super.pm,v $
- Revision 1.2  2005/08/26 21:24:45  abigail
- New, or modified tests
-
- Revision 1.1  2005/02/25 00:24:02  abigail
- First checkin
-

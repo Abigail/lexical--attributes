@@ -66,19 +66,3 @@ is ($low -> key2, "htrae", "-> key2");
 
 
 __END__
-
-=head1 HISTORY
-
- $Log: 20_inheritance.t,v $
- Revision 1.4  2005/08/26 21:24:45  abigail
- New, or modified tests
-
- Revision 1.3  2005/03/03 23:32:59  abigail
- Renamed Base.pm and Overload.pm because of case-insensitive filesystems
-
- Revision 1.2  2005/03/03 00:57:57  abigail
- Eliminate 'no_plan'
-
- Revision 1.1  2005/02/25 00:24:02  abigail
- First checkin
-

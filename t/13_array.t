@@ -354,10 +354,3 @@ for my $i (0 .. N - 1) {
 is_deeply (\@a, \@b, "final status");
 
 __END__
-
-=head1 HISTORY
-
- $Log: 13_array.t,v $
- Revision 1.1  2005/08/26 21:22:47  abigail
- New tests
-

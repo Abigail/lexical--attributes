@@ -23,5 +23,3 @@ sub count_dessert_topping_keys {
 1;
 
 __END__
-
-=head1 HISTORY

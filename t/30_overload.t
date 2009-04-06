@@ -30,19 +30,3 @@ is ("$obj1", "key1 = red; key2 = blue; key3 = yellow", "Overload");
 is ("$obj2", "key1 = green; key2 = brown; key3 = purple", "Overload");
 
 __END__
-
-=head1 HISTORY
-
- $Log: 30_overload.t,v $
- Revision 1.4  2005/08/26 21:24:45  abigail
- New, or modified tests
-
- Revision 1.3  2005/03/03 23:32:59  abigail
- Renamed Base.pm and Overload.pm because of case-insensitive filesystems
-
- Revision 1.2  2005/03/03 00:57:57  abigail
- Eliminate 'no_plan'
-
- Revision 1.1  2005/02/25 00:24:02  abigail
- First checkin
-
