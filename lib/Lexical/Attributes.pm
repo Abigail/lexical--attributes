@@ -1,11 +1,14 @@
 package Lexical::Attributes;
 
+use 5.008001;
+
 use strict;
 use warnings;
+no  warnings 'syntax';
 use Filter::Simple;
 use Scalar::Util;
 
-our ($VERSION) = q $Revision: 1.4 $ =~ /[\d.]+/g;
+our $VERSION  = '2009040601';
 
 my $sigil     = '[$@%]';
 my $sec_sigil = '[.]';
@@ -742,30 +745,18 @@ by index.
 
 =back
 
+=head1 DEVELOPMENT
+ 
+The current sources of this module are found on github,
+L<< git://github.com/Abigail/lexical--attributes.git >>.
+
 =head1 AUTHOR
 
-Abigail, I<abigail@abigail.nl>
+Abigail, L<< mailto:lexical-attributes@abigail.be >>.
 
-=head1 HISTORY
-
- $Log: Attributes.pm,v $
- Revision 1.4  2005/08/26 21:18:29  abigail
- Significant changes, to numerous to mention.
-
- Revision 1.3  2005/03/03 23:42:01  abigail
- Partial support for interpolation
-
- Revision 1.2  2005/03/03 00:58:40  abigail
- Support for $#.array
-
- Revision 1.1  2005/02/25 00:24:02  abigail
- First checkin
-
-
-
-=head1 LICENSE
+=head1 COPYRIGHT and LICENSE
  
-This program is copyright 2004 - 2005 by Abigail.
+This program is copyright 2004, 2005, 2009 by Abigail.
  
 Permission is hereby granted, free of charge, to any person obtaining a
 copy of this software and associated documentation files (the "Software"),
