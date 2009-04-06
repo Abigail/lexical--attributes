@@ -1,4 +1,4 @@
-#!/usr/bin/perl
+#!/usr/bin/perl -s
 
 use strict;
 use warnings;
@@ -13,7 +13,7 @@ BEGIN {
         push @INC => grep {-d} "blib/lib", "../blib/lib"
     }
 
-    use_ok ('Base');
+    use_ok ('LA_Base');
     use_ok ('Lowest');
 }
 
@@ -23,19 +23,19 @@ ok (defined $Lexical::Attributes::VERSION &&
 #
 # Check whether methods were created (or not).
 #
-ok ( defined &Super::name,   "Super::name");
-ok ( defined &Super::colour, "Super::colour");
-ok (!defined &Base::name,    "Base::name");
-ok (!defined &Base::colour,  "Base::colour");
-ok ( defined &Base::age,     "Base::age");
-ok ( defined &Base::key1,    "Base::key1");
-ok ( defined &Base::key2,    "Base::key2");
-ok ( defined &Lowest::key1,  "Lowest::key1");
-ok ( defined &Lowest::key2,  "Lowest::key2");
+ok ( defined &Super::name,      "Super::name");
+ok ( defined &Super::colour,    "Super::colour");
+ok (!defined &LA_Base::name,    "LA_Base::name");
+ok (!defined &LA_Base::colour,  "LA_Base::colour");
+ok ( defined &LA_Base::age,     "LA_Base::age");
+ok ( defined &LA_Base::key1,    "LA_Base::key1");
+ok ( defined &LA_Base::key2,    "LA_Base::key2");
+ok ( defined &Lowest::key1,     "Lowest::key1");
+ok ( defined &Lowest::key2,     "Lowest::key2");
 
-my $obj = Base -> new;
+my $obj = LA_Base -> new;
 my $low = Lowest -> new;
-isa_ok ($obj, "Base");
+isa_ok ($obj, "LA_Base");
 isa_ok ($low, "Lowest");
 
 $obj -> name ("fnord");
@@ -69,6 +69,9 @@ __END__
 =head1 HISTORY
 
  $Log: 20_inheritance.t,v $
+ Revision 1.3  2005/03/03 23:32:59  abigail
+ Renamed Base.pm and Overload.pm because of case-insensitive filesystems
+
  Revision 1.2  2005/03/03 00:57:57  abigail
  Eliminate 'no_plan'
 

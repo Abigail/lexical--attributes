@@ -7,13 +7,15 @@ t/10_basic.t
 t/20_inheritance.t
 t/30_overload.t
 t/40_destroy.t
+t/50_interpolation.t
 t/80_duplicate.t
-t/Base.pm
 t/Basic.pm
 t/BusyDestroy.pm
 t/Destroy.pm
 t/Duplicate.pm
+t/Interpolation.pm
+t/LA_Base.pm
+t/LA_Overload.pm
 t/Lowest.pm
 t/NoDestroy.pm
-t/Overload.pm
 t/Super.pm

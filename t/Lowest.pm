@@ -3,8 +3,8 @@ package Lowest;
 use strict;
 use warnings;
 
-use Base;
-our @ISA = qw /Base/;
+use LA_Base;
+our @ISA = qw /LA_Base/;
 
 #
 # Ordinary Perl OO module.
@@ -36,6 +36,9 @@ __END__
 =head1 HISTORY
 
  $Log: Lowest.pm,v $
+ Revision 1.2  2005/03/03 23:32:59  abigail
+ Renamed Base.pm and Overload.pm because of case-insensitive filesystems
+
  Revision 1.1  2005/02/25 00:24:02  abigail
  First checkin
 

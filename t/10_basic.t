@@ -1,4 +1,4 @@
-#!/usr/bin/perl
+#!/usr/bin/perl -s
 
 use strict;
 use warnings;
@@ -317,6 +317,9 @@ __END__
 =head1 HISTORY
 
  $Log: 10_basic.t,v $
+ Revision 1.3  2005/03/03 23:34:31  abigail
+ Added -s on she-bang line
+
  Revision 1.2  2005/03/03 00:57:45  abigail
  Tests for 0.array
 

@@ -5,7 +5,7 @@ use warnings;
 use Filter::Simple;
 use Scalar::Util;
 
-our ($VERSION) = q $Revision: 1.2 $ =~ /[\d.]+/g;
+our ($VERSION) = q $Revision: 1.3 $ =~ /[\d.]+/g;
 
 my $sigil     = '[$@%]';
 my $sec_sigil = '[.]';
@@ -14,6 +14,7 @@ my $name      = qr /[a-zA-Z_][a-zA-Z0-9_]*/;  # Starts with alpha or _, followed
                                               # by one or more alphanumunders.
 my $has_attribute = qr /(?>$sigil$sec_sigil$name)/;
 my $use_attribute = qr /(?>(?:\$#?|[%\@])$sec_sigil$name)/;
+my $int_attribute = qr /(?>(?:\$#?|\@)$sec_sigil$name)/;  # No hash.
 
 my %attributes;
 
@@ -81,12 +82,21 @@ sub use_attribute {
 
     my $str;
     if ($sigil eq '$') {
-        $str = "\$$name {Scalar::Util::refaddr \$self}";
+        $str = "\$$name\{Scalar::Util::refaddr \$self}";
     }
     else {
-        $str = "$sigil\{\$$name {Scalar::Util::refaddr \$self}}";
+        $str = "$sigil\{\$$name\{Scalar::Util::refaddr \$self}}";
     }
     $str;
+}
+
+sub interpolate {
+    local $_ = shift;
+
+    s{((?:[^\$\@\\]*(?:\\.[^\$\@\\]*)*)|[\$\@](?!\.$name))|([\$\@]\.$name)}
+     {defined $1 ? $1 : use_attribute ($2)}esg;
+
+    $_
 }
 
 FILTER_ONLY 
@@ -143,6 +153,16 @@ FILTER_ONLY
          {$4 ? use_attribute ($4) : declare_attribute ($1 || $2, $3)}egx;
     },
 
+    #
+    # Interpolation. Double quoted strings, backticks, and q[qx] {} constructs.
+    # Still need to do s/// and qr //.
+    #
+    # How to test qx?
+    #
+    quotelike => sub {
+        if (/^(["`]|q[qx]\s*\S)(.*)(\S)$/s) {$_ = $1 . interpolate ($2) . $3}
+    },
+
     # Restore tucked away, outcommented, attributes.
     code => sub {
         1 while s/(                   # Save
@@ -184,7 +204,8 @@ FILTER_ONLY
     },
 
     # For debugging purposes; to be removed.
-    all   => sub {print "<<$_>>\n"},
+    all   => sub {print "<<$_>>\n" if $::DEBUG},
+
 ;
 
 __END__
@@ -488,7 +509,9 @@ the same for classes that will inherit our classes.
 
 =head2 Interpolation
 
-One cannot interpolate attributes. At least, not yet. This will be fixed.
+Interpolation of scalars and array is possible in C<"">, C<``>, C<qq>
+and C<qx> strings. Interpolation in C<s///> and C<qr{}> is not yet
+supported.
 
 =head2 Overloading
 
@@ -500,7 +523,7 @@ Overloading of objects should work in the same way as other types of objects.
 
 =item o
 
-Attributes should interpolate.
+Interpolation is not complete yet.
 
 =item o
 
@@ -536,6 +559,9 @@ Abigail, I<abigail@abigail.nl>
 =head1 HISTORY
 
  $Log: Attributes.pm,v $
+ Revision 1.3  2005/03/03 23:42:01  abigail
+ Partial support for interpolation
+
  Revision 1.2  2005/03/03 00:58:40  abigail
  Support for $#.array
 
