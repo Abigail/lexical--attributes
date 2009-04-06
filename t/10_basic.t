@@ -2,8 +2,7 @@
 
 use strict;
 use warnings;
-use Test::More 'no_plan'; # tests => 12;
-# use Test::More tests => 110;
+use Test::More tests => 276;
 
 my $N = 5;
 
@@ -171,8 +170,11 @@ for my $i (0 .. $N - 1) {
 }
 for my $i (0 .. $N - 1) {
     my @a = $obj [$i] -> array;
+    my $a = $obj [$i] -> count_array;
     my @b = map {"key-push-$i-$_"} 0 .. $i;
+    my $b = $i;
     is_deeply \@a, \@b, "push ($i)";
+    is ($a, $b, '$#.array ($i)');
 }
 for my $i (0 .. $N - 1) {
     my $a = $obj [$i] -> pop_array;
@@ -315,6 +317,9 @@ __END__
 =head1 HISTORY
 
  $Log: 10_basic.t,v $
+ Revision 1.2  2005/03/03 00:57:45  abigail
+ Tests for 0.array
+
  Revision 1.1  2005/02/25 00:24:02  abigail
  First checkin
 

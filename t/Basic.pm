@@ -202,6 +202,13 @@ sub slice_array {
 
 
 #
+# $#.array
+#
+sub count_array {
+    $#.array;
+}
+
+#
 # Hash functionality
 #
 sub h_default_by_key {
@@ -249,6 +256,9 @@ __END__
 =head1 HISTORY
 
  $Log: Basic.pm,v $
+ Revision 1.2  2005/03/03 00:57:45  abigail
+ Tests for 0.array
+
  Revision 1.1  2005/02/25 00:24:02  abigail
  First checkin
 

@@ -5,14 +5,15 @@ use warnings;
 use Filter::Simple;
 use Scalar::Util;
 
-our ($VERSION) = q $Revision: 1.1 $ =~ /[\d.]+/g;
+our ($VERSION) = q $Revision: 1.2 $ =~ /[\d.]+/g;
 
 my $sigil     = '[$@%]';
 my $sec_sigil = '[.]';
 my $trait     = '(?:r[ow]|pr(?:iv)?)';        # read-only, read-write, private.
 my $name      = qr /[a-zA-Z_][a-zA-Z0-9_]*/;  # Starts with alpha or _, followed
                                               # by one or more alphanumunders.
-my $attribute = qr /(?>$sigil$sec_sigil$name)/;
+my $has_attribute = qr /(?>$sigil$sec_sigil$name)/;
+my $use_attribute = qr /(?>(?:\$#?|[%\@])$sec_sigil$name)/;
 
 my %attributes;
 
@@ -71,7 +72,7 @@ sub destroy_attributes {
 sub use_attribute {
     my ($attribute) = @_;
 
-    my ($sigil, $sec_sigil, $name) = unpack "A A A*" => $attribute;
+    my ($sigil, $name) = split /[.]/ => $attribute, 2;
 
     if (!$attributes {$name}) {
         die $_;
@@ -82,14 +83,8 @@ sub use_attribute {
     if ($sigil eq '$') {
         $str = "\$$name {Scalar::Util::refaddr \$self}";
     }
-    elsif ($sigil eq '@') {
-        $str = "\@{\$$name {Scalar::Util::refaddr \$self}}";
-    }
-    elsif ($sigil eq '%') {
-        $str = "\%{\$$name {Scalar::Util::refaddr \$self}}";
-    }
     else {
-        die "Sigil '$sigil' not implemented yet!\n";
+        $str = "$sigil\{\$$name {Scalar::Util::refaddr \$self}}";
     }
     $str;
 }
@@ -122,12 +117,12 @@ FILTER_ONLY
     # an lvalue method if the rw trait is given).
     #
     # We recognize:
-    #    "has"     [$@%][.:]attribute ( ("is")? "rw")? ";"
-    #    "has" "(" [$@%][.:]attribute ("," [$@%][.:]attribute)* ")" \
-    #                                 ( ("is")? "rw")? ";"
+    #    "has"     [$@%].attribute ( ("is")? "pr(iv)?|ro|rw")? ";"
+    #    "has" "(" [$@%].attribute ("," [$@%].attribute)* ")" \
+    #                              ( ("is")? "pr(iv)?|ro|rw")? ";"
     #
     # Other attribute usages are just:
-    #              [$@%].:attribute
+    #             ([$@%]|$#).attribute
     #
     # Attribute uses are handled by calling 'use_attribute'.
     #
@@ -135,15 +130,15 @@ FILTER_ONLY
         s{(?:                    # Declaration using 'has',
             \bhas \s*                       # Must start with "has"
              (?:                            # Either 
-                      ($attribute)          #   a single ttribute, stored in $1.
+                      ($has_attribute)      #   a single ttribute, stored in $1.
                |                            # or
-              [(] \s* ($attribute (?: \s* , \s* $attribute)*) \s* [)]
+              [(] \s* ($has_attribute (?: \s* , \s* $has_attribute)*) \s* [)]
                                             #   an attribute list, stored in $2.
              )
              (?: \s* (?:is \s+)? ($trait))? # Optional trait - stored in $3.
              \s* ;                          # Terminated by semi-colon.
           ) |                    # or actual usage.
-           ($attribute)                     # It's in $4.
+           ($use_attribute)                 # It's in $4.
          }
          {$4 ? use_attribute ($4) : declare_attribute ($1 || $2, $3)}egx;
     },
@@ -264,6 +259,10 @@ And you can use them in a similar way as you can with "normal" Perl variables:
 
     sub pop_element {
         return pop @.array;
+    }
+
+    sub last_index {
+        return $#.array;
     }
 
     sub gimme_key {
@@ -511,10 +510,6 @@ is a real pain.
 
 =item o
 
-C<$#.array> needs to work.
-
-=item o
-
 If generating a C<DESTROY> subroutine, check whether a C<DESTROY> subroutine
 is inherited, and call this subroutine if exists.
 
@@ -541,6 +536,9 @@ Abigail, I<abigail@abigail.nl>
 =head1 HISTORY
 
  $Log: Attributes.pm,v $
+ Revision 1.2  2005/03/03 00:58:40  abigail
+ Support for $#.array
+
  Revision 1.1  2005/02/25 00:24:02  abigail
  First checkin
 

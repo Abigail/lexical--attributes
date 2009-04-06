@@ -2,7 +2,7 @@
 
 use strict;
 use warnings;
-use Test::More 'no_plan';
+use Test::More tests => 6;
 
 BEGIN {
     if (-d 't') {
@@ -34,6 +34,9 @@ __END__
 =head1 HISTORY
 
  $Log: 30_overload.t,v $
+ Revision 1.2  2005/03/03 00:57:57  abigail
+ Eliminate 'no_plan'
+
  Revision 1.1  2005/02/25 00:24:02  abigail
  First checkin
 
