@@ -5,7 +5,7 @@ use warnings;
 use Filter::Simple;
 use Scalar::Util;
 
-our ($VERSION) = q $Revision: 1.3 $ =~ /[\d.]+/g;
+our ($VERSION) = q $Revision: 1.4 $ =~ /[\d.]+/g;
 
 my $sigil     = '[$@%]';
 my $sec_sigil = '[.]';
@@ -23,11 +23,12 @@ sub declare_attribute {
 
     $trait = "pr" if !$trait || $trait eq "priv";
 
-    my $str = "";
+    my $text = "";
 
     foreach my $attribute (split /\s*,\s*/ => $attributes) {
 
         my ($sigil, $sec_sigil, $name) = unpack "A A A*" => $attribute;
+        my $str = "";
 
         if ($attributes {$name}) {
             warn "Duplicate attribute '$attribute' ignored\n";
@@ -38,34 +39,103 @@ sub declare_attribute {
 
         $str .= "my %$name;";
         unless ($trait eq "pr") {
-            $str .= " sub $name {my \$_key = Scalar::Util::refaddr shift;";
             if ($sigil eq '$') {
-                $str .= " \$$name {\$_key}  = shift  if \@_;" if $trait eq "rw";
-                $str .= " \$$name {\$_key};";
+                $str .= <<'                --';
+                sub _NAME {
+                    my $_key = Scalar::Util::refaddr shift;
+                    $_NAME {$_key}
+                }
+                --
             }
+                  # @_ ? @{$_NAME {$_key}} [@_] : @{$_NAME {$_key}};
             elsif ($sigil eq '@') {
-                $str .= " \@{\$$name {\$_key}} = \@_ if \@_;" if $trait eq "rw";
-                $str .= " \@{\$$name {\$_key}}";
+                $str .= <<'                --';
+                sub _NAME {
+                    my $_key = Scalar::Util::refaddr shift;
+                    @_ ? @{$_NAME {$_key}} [@_] : @{$_NAME {$_key} || []};
+                }
+                --
             }
             elsif ($sigil eq '%') {
-                $str .= " \%{\$$name {\$_key}} = \@_ if \@_;" if $trait eq "rw";
-                $str .= " \%{\$$name {\$_key}}";
+                $str .= <<'                --';
+                sub _NAME {
+                    my $_key = Scalar::Util::refaddr shift;
+                    @_        ?      @{$_NAME {$_key}} {@_}  : 
+                    wantarray ?      %{$_NAME {$_key} || {}} :
+                                keys %{$_NAME {$_key} || {}};
+                }
+                --
             }
             else {
                 die "'$attribute' not implemented\n";
             }
-            $str .= "}";
+
+            if ($trait eq "rw") {
+                if ($sigil eq '$') {
+                    $str .= <<'                    --';
+                    sub set__NAME {
+                        my $self = shift;
+                        my $_key = Scalar::Util::refaddr $self;
+                        $_NAME {$_key} = shift;
+                        $self;
+                    }
+                    --
+                }
+                elsif ($sigil eq '@') {
+                    $str .= <<'                    --';
+                    sub set__NAME {
+                        my $self = shift;
+                        my $_key = Scalar::Util::refaddr $self;
+                        if    (@_ == 0) {delete $_NAME {$_key}}
+                        elsif (@_ == 1) {
+                            if (ref $_ [0] eq 'ARRAY') {$_NAME {$_key} = $_ [0]}
+                            else {delete $_NAME {$_key} [$_ [0]]}
+                        }
+                        else {
+                            while (@_ >= 2) {
+                                my ($index, $value) = splice @_ => 0, 2;
+                                $_NAME {$_key} [$index] = $value;
+                            }
+                        }
+                        $self;
+                    }
+                    --
+                }
+                elsif ($sigil eq '%') {
+                    $str .= <<'                    --';
+                    sub set__NAME {
+                        my $self = shift;
+                        my $_key = Scalar::Util::refaddr $self;
+                        if    (@_ == 0) {delete $_NAME {$_key}}
+                        elsif (@_ == 1) {
+                            if (ref $_ [0] eq 'HASH') {$_NAME {$_key} = $_ [0]}
+                            else {delete $_NAME {$_key} {$_ [0]}}
+                        }
+                        else {
+                            while (@_ >= 2) {
+                                my ($key, $value) = splice @_ => 0, 2;
+                                $_NAME {$_key} {$key} = $value;
+                            }
+                        }
+                        $self;
+                    }
+                    --
+                }
+            }
         }
+        $str =~ s/\n\s*/ /g;
+        $str =~ s/_NAME/$name/g;
+
+        $text .= $str;
     }
     
-    return $str;
+    return $text;
 }
 
 sub destroy_attributes {
-    my $str;
+    my $str = "";
     while (my ($key) = each %attributes) {
-        #$str .= "delete \$$key {\$_key};";
-        $str .= "delete \$$key {Scalar::Util::refaddr \$self};";
+        $str .= "delete \$$key {Scalar::Util::refaddr \$self};\n";
     }
     $str;
 }
@@ -93,16 +163,47 @@ sub use_attribute {
 sub interpolate {
     local $_ = shift;
 
-    s{((?:[^\$\@\\]*(?:\\.[^\$\@\\]*)*)|[\$\@](?!\.$name))|([\$\@]\.$name)}
-     {defined $1 ? $1 : use_attribute ($2)}esg;
+    # The regex below finds attribute names. We cannot simply use a
+    # regex for finding them, we need to parse the entire string, to
+    # be able to deal with backslashes.
+    #
+    # We use loop unrolling for efficiency.
+    #
+    s {(                     # Capture non attributes in $1.
+           [^\$\@\\]*            # Anything that isn't $, @ or \ is ok.
+           (?:                   # Group (1)
+               (?:                   # Group (2) ("Special things")
+                   \\.                   # Escape followed by any character
+                   |                     # or
+                   (?:                   # Group (3)
+                       (?:>\$\#?)            # Scalar sigil, or array count
+                                             # The (?> ) is vital here.
+                       |                     # Or
+                       \@                    # Array sigil
+                   )                     # End group (3)
+                   (?!\.$name)           # not followed by dot attribute name
+               )                     # End group (2)
+               [^\$\@\\]*            # Anything that isn't $, @ or \
+           )*                    # End group (1), repeated zero or more times.
+       )                     # End capture $1
+       |                     # Or
+       (                     # In $2, capture an attribute
+           (?:(?>\$\#?)|\@)      # Primary sigil
+           \.$name               # dot attribute name
+       )                     # End $2
+    }
+    {defined $1 ? $1 : use_attribute ($2)}sexg;
 
     $_
 }
 
 FILTER_ONLY 
+    #
     # Initialize variables.
+    #
     all   => sub {%attributes = ()},
 
+    #
     # Save all attributes found in comments. *Very* simple heuristics
     # to determine comments - note that quote like constructs have been
     # moved out of the way.
@@ -110,6 +211,7 @@ FILTER_ONLY
     # Moving away the attributes found in comments prevents subsequent
     # passes to modify them. In particular, outcommented attribute
     # declarations shouldn't create methods or hashes. 
+    #
     code => sub {
         1 while s/(                   # Save
                     (?<!$sigil)       # Not preceeded by a sigil
@@ -121,6 +223,7 @@ FILTER_ONLY
                  /$1$2<$3>$4/xg;
     },
 
+    #
     # Find the attribute declarions and uses. Foreach declararion, the sub
     # 'attribute' is called, which will create an attribute hash,
     # and, for non-private attributes, a constructor (which maybe
@@ -154,16 +257,61 @@ FILTER_ONLY
     },
 
     #
-    # Interpolation. Double quoted strings, backticks, and q[qx] {} constructs.
-    # Still need to do s/// and qr //.
+    # Interpolation. Double quoted strings, backticks, slashes and q[qrx] {},
+    # m// and s/// constructs.
+    #
+    # Note that '', qw{}, tr///, m'' and s''' don't interpolate.
     #
     # How to test qx?
     #
     quotelike => sub {
-        if (/^(["`]|q[qx]\s*\S)(.*)(\S)$/s) {$_ = $1 . interpolate ($2) . $3}
+        if (m {^(["`/]|q[qrx]\s*\S|[sm]\s*[^\s'])(.*)(\S)$}s) {
+            $_ = $1 . interpolate ($2) . $3
+        }
     },
 
+    #
+    # If a subroutine uses the keyword 'method' (at the beginning of
+    # a line), add an assignment to '$self'.
+    #
+
+    code => sub {
+        s<^(\s*) method (\s+ [a-zA-Z_]\w* \s*     # sub name
+            (?:\([^)]*\) \s*)?                    # Optional prototype
+            \{)                                   # Opening of block
+         ><$1 sub $2 my \$self = shift;>mgx;
+    },
+
+    #
+    # Add a DESTROY function
+    #
+    code => sub {
+        my $destroy = <<'        --';
+
+        sub DESTROY {
+            our @ISA;
+            my  $self     = shift;
+            my  $DESTRUCT = __PACKAGE__ . "::DESTRUCT";
+            $self -> $DESTRUCT if do {no strict 'refs'; exists &$DESTRUCT};
+            DESTROY_ATTRIBUTES;
+            foreach my $class (@ISA) {
+                my $destroy = $class . "::DESTROY";
+                $self -> $destroy if $self -> can ($destroy);
+            }
+        }
+        --
+
+        my $destroy_attributes = destroy_attributes;
+
+        $destroy  =~ s/DESTROY_ATTRIBUTES/$destroy_attributes/;
+        $destroy  =~ s/^ {8}//gm;
+
+        $_ .= $destroy;
+    },
+
+    #
     # Restore tucked away, outcommented, attributes.
+    #
     code => sub {
         1 while s/(                   # Save
                     (?<!$sigil)       # Not preceeded by a sigil
@@ -175,36 +323,10 @@ FILTER_ONLY
                  /$1$2$3$4/xg;
     },
 
-    # Handle DESTROY. Three cases:
-    #   1.  __DESTROY__ is used, presumably inside a DESTROY sub.
-    #   2.  No __DESTROY__, but there's a DESTROY sub.
-    #   3.  No __DESTROY__, and no DESTROY sub. In that case, a DESTROY
-    #       sub is added to the end.
-    code => sub {
-        my $destroy = destroy_attributes;
-
-        # Found __DESTROY__
-        s<\b__DESTROY__\b><$destroy>g                                         or
-
-            # Found DESTROY subroutine
-            s<^(\s* sub \s+ DESTROY \s* (?: \([^)]*\) \s*)? \{ [^\n]*)>
-             <$1 do {my \$self = \$_ [0]; $destroy};>mx                       or
-
-            $_ .= "sub DESTROY {my \$self = shift; $destroy}";
-    },
-
-    # Add assignments to $self and $_key to all subroutines that start
-    # with a trailing '{' on the declaration line. (A bit Spiffy like).
-    # Subs named 'new' will be excluded. Note that DESTROY is *not* excluded.
-    code => sub {
-        s<^(\s* sub \s+ (?!new\b)[a-zA-Z]\w* \s*  # sub name
-            (?:\([^)]*\) \s*)?                    # Optional prototype
-            \{ [\ \t]*) \n                        # Opening block
-          ><$1 my \$self = shift;\n>mgx;
-    },
-
+    #
     # For debugging purposes; to be removed.
-    all   => sub {print "<<$_>>\n" if $::DEBUG},
+    #
+    # all   => sub {print "<<$_>>\n" if $::DEBUG || $ENV {DEBUG}},
 
 ;
 
@@ -229,7 +351,11 @@ Lexical::Attributes - Proper encapsulation
 
 =head1 DESCRIPTION
 
-B<NOTE>: This is experimental software! Certain thing will change, 
+B<NOTE>: This module has changed significantly between releases 1.3 and
+1.4. Code that works with version 1.3 or earlier I<will not> work with
+version 1.4 or later.
+
+B<NOTE>: This is experimental software! Certain things will change, 
 specially if they are marked B<FIXME> or mentioned on the B<TODO>
 list.
 
@@ -336,60 +462,204 @@ no accessor for this attribute is generated.
 
 =item C<ro>
 
-This trait generates an accessor for the attribute. Only the value
-of the attribute can be fetched. The name of the accessor will be
-the same as the name of the attribute. Any parameters given to the
-accessor will be ignored.
+This trait generates an accessor for the attribute, with the same name
+as the attribute.
 
-    package MyObject;
-    use Lexical::Attributes;
+For scalar attributes, calling the accessor returns the value of the
+attribute.  Any parameters given to the accessor will be ignored.
 
-    has $.colour is ro;
+ package MyObject;
+ use Lexical::Attributes;
 
-    sub new {bless [] => shift}
-    sub some_sub {
-        ...  # Some code that sets the 'colour' attribute.
-    }
+ has $.colour is ro;
 
-    1;
+ sub new {bless \do {my $obj} => shift}
+ sub some_sub {
+     ...  # Some code that sets the 'colour' attribute.
+ }
 
-    __END__
+ 1;
 
-    # Main program
+ # Main program
 
-    my $obj = MyObject -> new;
-    $obj -> some_sub (...);
-    print $obj -> colour;   # Prints the colour.
+ my $obj = MyObject -> new;
+ $obj -> some_sub (...);
+ print $obj -> colour;   # Prints the colour.
 
-Accessors for arrays and hashes return the array or hash (flattened to
-a list).
+ __END__
+
+Accessors for arrays and hashes take optional arguments. If no arguments
+are given, the accessor will return the array or hash in list context 
+(as a list - just as if you'd use an array or hash in list context). In 
+scalar context, the number of elements of the array or hash are returned.
+
+If one or more arguments are given, the corresponding arguments are returned.
+Some examples:
+
+ package MyObject;
+ use Lexical::Attributes;
+
+ has @.colours is ro;
+ has %.fruit   is ro;
+
+ sub new  {bless \do {my $obj} => shift}
+ method init {  # See below for discussion of 'method'.
+     @.colours = qw /red white blue green yellow/;
+     %.fruit   = (cherry  =>  'red',
+                  peach   =>  'pink',
+                  apple   =>  'green',
+     );
+     $self;
+ }
+
+ 1;
+
+ # Main program
+
+ my $obj  = MyObject -> new -> init;
+
+ local $, = " ";
+
+ print $obj -> colours;         # red white blue green yellow
+ print $obj -> colours (2);     # blue
+ print $obj -> colours (1, 3);  # white green
+
+ print sort $obj -> fruit;      # apple cherry green peach pink red
+ print $obj -> fruit ('cherry');        # red
+ print $obj -> fruit ('apple', 'peach') # green pink
+
+ __END__
 
 =item C<rw>
 
-This traits generates an accessor that can be used to fetch the value,
-or the set the value. If no parameters are given, the value is fetched.
-If values are given, the attribute will be given these values. If multiple
-arguments are given to an accessor setting a scalar attribute, the attribute
-will be set to the first argument, other arguments are ignored.
+Attributes with the C<rw> trait have two accessors generated for them.
+One accessor, with the same name as the attribute is used to fetch the
+value - it's identical to the accessor discussed at above, for C<ro>
+attributes. The second accessor is used to store values; its name will
+be the name of the attribute, prepended by C<set_>.
 
-    package MyObject;
-    use Lexical::Attributes;
+For scalar values, calling the setting accessor sets the attribute to
+the first argument. Any other argument are ignored.
 
-    has ($.scalar, @.array) is rw;
-    sub new {bless [] => shift;
+ package MyObject;
+ use Lexical::Attributes;
 
-    __END__
+ has $.name is rw;
+ sub new {bless \do {my $var} => shift}
 
-    # Main program
-    my $obj = MyObject -> new;
-    $obj -> scalar ("hello, world");
-    $obj -> array (qw /tic tac toe/);
+ 1;
 
-    print $obj -> scalar;             # Prints 'hello, world'.
-    print join "-" => $obj -> array;  # Prints 'tic-tac-toe'.
+ # Main program
+ my $obj = MyObject -> new;
+ $obj -> set_name ("Abigail");
 
-B<FIXME>: With this interface, it's not possible to set an array (or hash)
-to an empty set.
+ print $obj -> name;   # Prints 'Abigail'.
+
+ __END__
+
+For aggregates, the situation is a bit more complex. There are four
+possibilities:
+
+=over 4
+
+=item No arguments
+
+If the settable accessor was called without arguments, the array or hash
+this accessor is associated with is cleared - that is, set to an empty
+array or hash.
+
+=item One argument, a reference of the appropriate type
+
+If one argument is given, and the argument is a reference of the appropriate
+type (a reference to an array for array attributes, and a reference to a
+hash for hash attributes), the array or hash is set to the given argument.
+Note that the actual reference is stored - no copies are made.
+
+=item One argument, not a reference of the appropriate type
+
+In this case, the argument is taken to be an index in the array or hash
+(so, for array attributes, the argument is cast to an integer if necessary,
+and to a string for hash attributes), and the corresponding element is
+deleted, in a similar way C<delete> is called on regular arrays and hashes.
+Note that for arrays, C<deleting> something that's in the middle of the 
+array doesn't cause the array to shrink - the element is just undefined.
+
+=item More than one argument
+
+Then it's assumed a list of key (or index)/value pairs are given. Values
+are set to the corresponding keys or indices. Arrays and hashes will grow
+if needed.
+
+=back
+
+ package MyObject;
+ use Lexical::Attributes;
+
+ has @.colours is rw;
+ has %.fruit   is rw;
+
+ sub new {bless \do {my $obj} => shift}
+
+ 1;
+
+ # Main program.
+
+ my $obj = MyObject -> new;
+
+ local $, = " ";
+
+ # Set the colours to a specific array.
+ $obj -> set_colours (['red', 'white', 'blue']);
+ print $obj -> colours;      # 'red white blue'.
+ print $obj -> colours (1);  # 'white'.
+
+ # Change colour on index 1.
+ $obj -> set_colours (1, 'yellow');
+ print $obj -> colours;      # 'red yellow blue'.
+
+ # Change/add multiple colours.
+ $obj -> set_colours (1, 'green', 3, 'brown');
+ print $obj -> colours;      # 'red green blue brown'.
+
+ # Delete colour on index 3.
+ $obj -> set_colours (3);
+ print $obj -> colours;      # 'red green blue'.
+
+ # Clear the array.
+ $obj -> set_colour;
+ print $obj -> colours;      # Nothing, array is empty.
+
+
+ # Set the fruits to a specific hash.
+ $obj -> set_fruit ({apple => 'green', cherry => 'red',
+                     peach => 'pink'});
+ print $obj -> fruit;        # 'apple green peach pink cherry red'.
+ print $obj -> fruit ("apple");  # 'green'.
+
+ # Change the colour of the apple.
+ $obj -> set_fruit (apple => 'yellow');
+ print $obj -> fruit;        # 'apple yellow peach pink cherry red'.
+
+ # Change/add multiple fruits.
+ $obj -> set_fruit (apple => 'red', lemon => 'yellow');
+ print $obj -> fruit;        # 'apple red peach pink
+                             #  cherry red lemon yellow'.
+
+ # Delete a fruit
+ $obj -> set_fruit ("peach");
+ print $obj -> fruit;        # 'apple red cherry red lemon yellow'.
+
+ # Delete all fruits.
+ $obj -> set_fruit;
+ print $obj -> fruit;        # Nothing, hash is empty.
+
+All settable accessors return the object, regardless of the number or
+types of arguments. This gives the caller the option of chaining modifications:
+
+ my $obj = Class -> new
+                 -> set_age (25)
+                 -> set_name ("Jane Doe")
+                 -> set_hair_colour ("auburn");
 
 =back
 
@@ -401,32 +671,13 @@ is called C<$self>. This is not likely to be a problem, as it seems
 to be quite common to name the variable holding the current object
 C<$self>.
 
-To further add the programmer, every subroutine, with the exception of
-the ones listed below, will have C<my $self = shift;> added to the
-beginning of their body. This is what most OO modules start with anyway.
-Excluded are:
+To further add the programmer, if a subroutine uses the keyword C<method>
+instead of C<sub>, it will have a variable called C<$self>, in which the
+first element of C<@_> is shifted. Essentially, the line C<my $self = shift;>
+is prepended to the body of the subroutine.
 
-=over 4
-
-=item C<new> 
-
-Subroutines named C<new> are typically constructors - for those
-having a C<$self> doesn't make sense.
-
-=item C<_name>
-
-Subroutines whose name start with an underscore are considered private.
-In fact, they well could not be method, but an ordinary, class-level,
-subroutine. 
-
-=item C<{ something>
-
-Also, subroutines who have any non-white space after their opening
-brace and before the following newline will be left untouched. This
-allows you to flag a subroutine should be left as is with for instance,
-a comment character.
-
-=back
+Subroutines that do not use the keyword C<method> are left as is - these
+subroutines are typically reserved for class methods, or private subroutines.
 
 Examples:
 
@@ -435,19 +686,9 @@ Examples:
         $.attribute + $self -> other_method;
     }
 
-    # Return first argument, even if that's the current object
-    sub _private {
-        return $_ [0];
-    }
-
-    # $_ [0] is the class name, as 'new' subroutines are exempt.
-    sub new {
-        bless [] => shift;   
-    }
-
-Note that if you use a method that doesn't get the assignment to C<$self>
-added, and you use a C<$.attribute> type of attribute, you must put an
-assignment to C<$self> before the use of the attribute.
+If you do not use the C<method> keyword, you do not put the current object
+into a variable called C<$self>, and you use one of the lexical attributes,
+your code is unlikely to work.
 
 =head2 DESTROY
 
@@ -455,49 +696,17 @@ Since the attributes are stored in lexical hashes, attributes do not get
 garbage collected via a reference counting mechanism when the object goes
 out of scope. In order to clean up attribute data, action triggered by 
 the call of C<DESTROY> is needed. Hence, this module will insert a C<DESTROY>
-subroutine, or modify an existing C<DESTROY> subroutine. There are three cases.
+subroutine which will take care of cleaning up the attribute data. It
+will also propagate calling C<DESTROY> methods in any inherited classes.
 
-=over 4
-
-=item *
-
-If there is no C<DESTROY> subroutine found, a C<DESTROY> will be added.
-This new subroutine will clean up attribute data, and nothing else.
-It will B<not> call a C<DESTROY> method in an inherited class.
-B<FIXME>: Call C<SUPER::DESTROY> if there is one.
-
-=item *
-
-There is a C<DESTROY> subroutine, and it doesn't contain the token
-C<__DESTROY__>. Then it will put the code to clean up the attributes 
-on the same line as the opening brace, assuming the current object to
-be in C<$_ [0]>. It won't modify C<@_>, and it won't create a C<$self>.
-B<FIXME>: This should probably change.
-
-=item *
-
-There's a C<__DESTROY__> token. Then this token will be replaced by 
-the code that cleans up the attributes. This is useful if you want to
-make use of the attributes inside a C<DESTROY> function -- without a
-C<__DESTROY__> token, the attributes will be cleaned up at the beginning
-of the C<__DESTROY__> function. Note that I<any> C<__DESTROY__> will 
-be replaced by attribute cleaning code Then this token will be replaced by 
-the code that cleans up the attributes. This is useful if you want to
-make use of the attributes inside a C<DESTROY> function -- without a
-C<__DESTROY__> token, the attributes will be cleaned up at the beginning
-of the C<__DESTROY__> function. It is assumed that C<$self> exists at
-this point. (If the opening brace of the body is followed by just whitespace,
-$self will be auto-declared as mentioned above.) Note that I<any>
-C<__DESTROY__> will be replaced by attribute cleaning code - even if
-placed inside another method. It's safe to use it inside strings though.
-
-    sub DESTROY {
-        ... do something with attributes ...
-        __DESTROY___
-        ... attributes are now undefined ...
-    }
-
-=back
+If you want to do any other action you'd normally put into C<DESTROY>, 
+create a method called C<DESTRUCT>. This method will be called on when
+the object goes out of scope. The method will be called before attributes
+values have been cleaned up. There is no need to manually call C<DESTRUCT>
+in inherited classes, as C<Lexical::Attributes> will do that for you. In
+fact, calling C<DESTRUCT> in a super class yourself is likely to cause
+unwanted effects, because that will mean C<DESTRUCT> in a superclass is
+called more than once.
 
 =head2 Inheritance
 
@@ -509,9 +718,9 @@ the same for classes that will inherit our classes.
 
 =head2 Interpolation
 
-Interpolation of scalars and array is possible in C<"">, C<``>, C<qq>
-and C<qx> strings. Interpolation in C<s///> and C<qr{}> is not yet
-supported.
+Interpolation of scalars and array is possible in C<"">, C<``>, C<//>, C<m//>,
+C<s///>, C<qq {}> C<qr {}>, and C<qx {}> strings. There's no interpolation
+in C<''>, C<m''>, C<s'''>, C<tr//> nor in C<qw {}> strings.
 
 =head2 Overloading
 
@@ -520,25 +729,6 @@ Overloading of objects should work in the same way as other types of objects.
 =head1 TODO
 
 =over 4
-
-=item o
-
-Interpolation is not complete yet.
-
-=item o
-
-Rethink the generated methods for setting arrays and hashes.
-Not being able to set arrays or hashes to empty arrays or hashes
-is a real pain.
-
-=item o
-
-If generating a C<DESTROY> subroutine, check whether a C<DESTROY> subroutine
-is inherited, and call this subroutine if exists.
-
-=item o
-
-Modifying an existing C<DESTROY> subroutine could be done better.
 
 =item o
 
@@ -559,6 +749,9 @@ Abigail, I<abigail@abigail.nl>
 =head1 HISTORY
 
  $Log: Attributes.pm,v $
+ Revision 1.4  2005/08/26 21:18:29  abigail
+ Significant changes, to numerous to mention.
+
  Revision 1.3  2005/03/03 23:42:01  abigail
  Partial support for interpolation
 

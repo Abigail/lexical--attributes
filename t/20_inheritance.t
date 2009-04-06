@@ -4,6 +4,7 @@ use strict;
 use warnings;
 use Test::More tests => 26;
 
+
 BEGIN {
     if (-d 't') {
         chdir 't' or die "Failed to chdir: $!\n";
@@ -38,12 +39,12 @@ my $low = Lowest -> new;
 isa_ok ($obj, "LA_Base");
 isa_ok ($low, "Lowest");
 
-$obj -> name ("fnord");
-$obj -> colour ("yellow");
+$obj -> set_name ("fnord");
+$obj -> set_colour ("yellow");
 $obj -> set_address ("Europe");
-$obj -> base_name ("womble");
-$obj -> base_colour ("purple");
-$obj -> age (25);
+$obj -> set_base_name ("womble");
+$obj -> set_base_colour ("purple");
+$obj -> set_age (25);
 
 is ($obj ->  name,        "fnord",  "->  name");
 is ($obj -> {name},       "fnord",  "-> {name}");
@@ -55,12 +56,12 @@ is ($obj ->  age,          25,      "-> age");
 is ($obj ->  address,     "eporuE", "->  address");
 is ($obj -> {address},    "Europe", "-> {address}");
 
-$low -> key1 ("hello");
-$low -> key2 ("world");
+$low -> set_key1 ("hello");
+$low -> set_key2 ("world");
 is ($low -> key1, "hello", "-> key1");
 is ($low -> key2, "dlrow", "-> key2");
 
-$low -> set_key2 ("earth");
+$low -> my_set_key2 ("earth");
 is ($low -> key2, "htrae", "-> key2");
 
 
@@ -69,6 +70,9 @@ __END__
 =head1 HISTORY
 
  $Log: 20_inheritance.t,v $
+ Revision 1.4  2005/08/26 21:24:45  abigail
+ New, or modified tests
+
  Revision 1.3  2005/03/03 23:32:59  abigail
  Renamed Base.pm and Overload.pm because of case-insensitive filesystems
 

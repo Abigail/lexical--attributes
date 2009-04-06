@@ -12,7 +12,7 @@ sub new {
     bless [] => shift;
 }
 
-sub load_me {
+method load_me {
     $.private_key  = $_ [0] if @_;
     $.simple_key   = $_ [1] if @_ > 1;
     $.settable_key = $_ [2] if @_ > 2;
@@ -24,9 +24,6 @@ sub count_keys { # Leave me
     scalar keys %settable_key,)
 }
 
-sub DESTROY {
-    # Nothing important here.
-}
 
 1;
 
@@ -35,6 +32,9 @@ __END__
 =head1 HISTORY
 
  $Log: Destroy.pm,v $
+ Revision 1.2  2005/08/26 21:24:45  abigail
+ New, or modified tests
+
  Revision 1.1  2005/02/25 00:24:02  abigail
  First checkin
 

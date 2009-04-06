@@ -2,7 +2,7 @@
 
 use strict;
 use warnings;
-use Test::More tests => 37;
+use Test::More tests => 17;
 
 
 BEGIN {
@@ -14,9 +14,7 @@ BEGIN {
         push @INC => grep {-d} "blib/lib", "../blib/lib"
     }
 
-    use_ok ('Destroy');
-    use_ok ('NoDestroy');
-    use_ok ('BusyDestroy');
+    use_ok ('FloorWaxDessertTopping');
 }
 
 my @counts;
@@ -24,6 +22,40 @@ my @counts;
 ok (defined $Lexical::Attributes::VERSION &&
             $Lexical::Attributes::VERSION > 0, '$VERSION');
 
+my $o1 = FloorWaxDessertTopping -> new -> init ('red', 'blue');
+my $o2 = FloorWaxDessertTopping -> new -> init ('green', 'orange');
+
+isa_ok ($o1, 'FloorWaxDessertTopping');
+isa_ok ($o2, 'FloorWaxDessertTopping');
+isa_ok ($o1, 'FloorWax');
+isa_ok ($o2, 'FloorWax');
+isa_ok ($o1, 'DessertTopping');
+isa_ok ($o2, 'DessertTopping');
+
+my $c1 = $o1 -> colour;
+my $c2 = $o2 -> colour;
+
+is ($c1, 'red and blue');
+is ($c2, 'green and orange');
+
+is (FloorWaxDessertTopping -> count_floor_wax_keys, 2);
+is (FloorWaxDessertTopping -> count_dessert_topping_keys, 2);
+
+undef $o2;
+
+is (FloorWaxDessertTopping -> count_floor_wax_keys, 1);
+is (FloorWaxDessertTopping -> count_dessert_topping_keys, 1);
+
+undef $o1;
+
+is (FloorWaxDessertTopping -> count_floor_wax_keys, 0);
+is (FloorWaxDessertTopping -> count_dessert_topping_keys, 0);
+
+my @dead_colours = FloorWax -> dead_colours;
+
+is_deeply (\@dead_colours, ['green', 'red']);
+
+__END__
 
 my $obj_d1 = Destroy     -> new; isa_ok ($obj_d1, 'Destroy');
 my $obj_d2 = Destroy     -> new; isa_ok ($obj_d2, 'Destroy');
@@ -36,17 +68,17 @@ is_deeply ([Destroy     -> count_keys], [0, 0, 0], "Count");
 is_deeply ([NoDestroy   -> count_keys], [0, 0, 0], "Count");
 is_deeply ([BusyDestroy -> count_keys], [0, 0, 0], "Count");
 
-$obj_d1 -> set_settable_key ("hello, world");
-$obj_n1 -> set_settable_key ("hello, world");
-$obj_b1 -> set_settable_key ("hello, world");
+$obj_d1 -> settable_key ("hello, world");
+$obj_n1 -> settable_key ("hello, world");
+$obj_b1 -> settable_key ("hello, world");
 
 is_deeply ([Destroy     -> count_keys], [0, 0, 1], "Count");
 is_deeply ([NoDestroy   -> count_keys], [0, 0, 1], "Count");
 is_deeply ([BusyDestroy -> count_keys], [0, 0, 1], "Count");
 
-$obj_d2 -> set_settable_key ("baz");
-$obj_n2 -> set_settable_key ("baz");
-$obj_b2 -> set_settable_key ("baz");
+$obj_d2 -> settable_key ("baz");
+$obj_n2 -> settable_key ("baz");
+$obj_b2 -> settable_key ("baz");
 is_deeply ([Destroy     -> count_keys], [0, 0, 2], "Count");
 is_deeply ([NoDestroy   -> count_keys], [0, 0, 2], "Count");
 is_deeply ([BusyDestroy -> count_keys], [0, 0, 2], "Count");
@@ -66,9 +98,9 @@ is_deeply ([BusyDestroy -> count_keys], [0, 0, 2], "Count");
     is_deeply ([NoDestroy   -> count_keys], [1, 1, 2], "Count");
     is_deeply ([BusyDestroy -> count_keys], [1, 1, 2], "Count");
 
-    $obj_d3 -> set_settable_key ("quux");
-    $obj_n3 -> set_settable_key ("quux");
-    $obj_b3 -> set_settable_key ("quux");
+    $obj_d3 -> settable_key ("quux");
+    $obj_n3 -> settable_key ("quux");
+    $obj_b3 -> settable_key ("quux");
     is_deeply ([Destroy     -> count_keys], [1, 1, 3], "Count");
     is_deeply ([NoDestroy   -> count_keys], [1, 1, 3], "Count");
     is_deeply ([BusyDestroy -> count_keys], [1, 1, 3], "Count");
@@ -89,9 +121,9 @@ __END__
 
 =head1 HISTORY
 
- $Log: 40_destroy.t,v $
- Revision 1.3  2005/08/26 21:24:45  abigail
- New, or modified tests
+ $Log: 42_destroy_mi.t,v $
+ Revision 1.1  2005/08/26 21:22:47  abigail
+ New tests
 
  Revision 1.2  2005/03/03 23:34:31  abigail
  Added -s on she-bang line
