@@ -1,8 +1,8 @@
 Makefile.PL
 MANIFEST
+Changes
 README
 lib/Lexical/Attributes.pm
-META.yml                                 Module meta-data (added by MakeMaker)
 t/10_scalar.t
 t/13_array.t
 t/17_hash.t
