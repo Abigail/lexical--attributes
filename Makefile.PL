@@ -1,32 +1,34 @@
 use ExtUtils::MakeMaker;
-# See lib/ExtUtils/MakeMaker.pm for details of how to influence
-# the contents of the Makefile that is written.
 
-use 5.008001;
-
-WriteMakefile(
-    NAME              => 'Lexical::Attributes',
-    VERSION_FROM      => 'lib/Lexical/Attributes.pm', # finds $VERSION
-    PREREQ_PM         => {Filter::Simple => '0.78',Test::More => 0}, # e.g., Module::Name => 1.1
-    ($ExtUtils::MakeMaker::VERSION ge '6.48'? 
-     (MIN_PERL_VERSION => 5.008001,
-      META_MERGE => {
-        resources=> {
-          repository => 'http://github.com/Abigail/lexical--attributes/tree',
+my %args = (
+    NAME                 => 'Lexical::Attributes',
+    VERSION_FROM         => 'lib/Lexical/Attributes.pm',
+    ABSTRACT_FROM        => 'lib/Lexical/Attributes.pm',
+    PREREQ_PM            => {Filter::Simple => '0.78'},
+    MIN_PERL_VERSION     =>  5.008001,
+    AUTHOR               => 'Abigail <lexical-attributes@abigail.be>',
+    LICENSE		 => 'mit',
+    META_MERGE           => {
+        build_requires   => {Test::More => 0},
+        resources        => {
+            repository   => 'git://github.com/Abigail/lexical--attributes.git',
         },
-        keywords => ['Perl6','OOP'],
-      },
-      LICENSE		=> 'unrestricted',
-     ) : ()),
+        keywords         => [qw [Objects Encapsulation Attributes Strict]],
+    },
+);
+
+my %filter = (
+    MIN_PERL_VERSION     => '6.48',
+    META_MERGE           => '6.46',
+    AUTHOR               => '6.07',
+    ABSTRACT_FROM        => '6.07',
+    LICENSE              => '6.07',
 );
 
 
-#
-# $Log: Makefile.PL,v $
-# Revision 1.2  2005/03/03 00:59:04  abigail
-# Requirements
-#
-# Revision 1.1  2005/02/25 00:24:02  abigail
-# First checkin
-#
-#
+delete $args {$_} for grep {defined $filter {$_} &&
+                            $ExtUtils::MakeMaker::VERSION lt $filter {$_}}
+                            keys %args;
+
+
+WriteMakefile %args;
