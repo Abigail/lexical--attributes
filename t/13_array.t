@@ -12,6 +12,8 @@ BEGIN {
         chdir 't' or die "Failed to chdir: $!\n";
     }
 
+    unshift @INC => ".";
+
     unless (grep {m!"blib/lib"!} @INC) {
         push @INC => grep {-d} "blib/lib", "../blib/lib"
     }
