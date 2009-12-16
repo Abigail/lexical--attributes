@@ -8,7 +8,7 @@ no  warnings 'syntax';
 use Filter::Simple;
 use Scalar::Util;
 
-our $VERSION  = '2009040801';
+our $VERSION  = '2009121601';
 
 my $sigil     = '[$@%]';
 my $sec_sigil = '[.]';
