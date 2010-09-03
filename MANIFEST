@@ -14,7 +14,6 @@ t/50_interpolation.t
 t/80_duplicate.t
 t/95_pod.t
 t/96_pod_coverage.t
-t/99_kwalitee.t
 t/Scalar.pm
 t/Array.pm
 t/Hash.pm
